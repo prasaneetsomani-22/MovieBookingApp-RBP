@@ -56,8 +56,8 @@ public class ServiceTest {
 		RequestedUser user = new RequestedUser("srk@gmail.com", "srk@123");
 		User user1 = new User(103,"srk@gmail.com","Sharukh","Khan","srk@123","1234567890");
 		when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user1));
-		assertEquals(service.authorizeUser(user), true);
-		assertEquals(service.authorizeUser(new RequestedUser("sr@gmail.com", "srk@123")), false);
+		assertEquals(service.authorizeUser(user), user1);
+		assertEquals(service.authorizeUser(new RequestedUser("sr@gmail.com", "srk@123")), null);
 	}
 	
 	@Test
@@ -73,8 +73,8 @@ public class ServiceTest {
 	@Test
 	public void testSearchByMovieName() {
 		List<Movie> movies = new ArrayList<>();
-		movies.add(new Movie(new Movie.MovieKey("Pathan","PVR"),100));
-		movies.add(new Movie(new Movie.MovieKey("Pathan","INOX"),200));
+		movies.add(new Movie(new Movie.MovieKey("pathan","PVR"),100));
+		movies.add(new Movie(new Movie.MovieKey("pathan","INOX"),200));
 		
 		when(movieRepository.findAll()).thenReturn(movies);
 		assertEquals(service.searchByMovieName("pat"), movies);

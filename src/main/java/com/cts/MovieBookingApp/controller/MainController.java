@@ -1,14 +1,14 @@
 package com.cts.MovieBookingApp.controller;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.Future;
 
-import org.apache.catalina.Service;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebInputException;
 
 import com.cts.MovieBookingApp.exception.MovieNotFoundException;
+import com.cts.MovieBookingApp.kafka.KafkaTopicConfig;
 import com.cts.MovieBookingApp.models.Movie;
 import com.cts.MovieBookingApp.models.RequestedUser;
 import com.cts.MovieBookingApp.models.Ticket;
@@ -31,6 +32,7 @@ import com.cts.MovieBookingApp.service.MainService;
 
 
 @RestController
+@CrossOrigin(origins="http://localhost:4200")
 //@RequestMapping("/api/v1.0/MovieBooking")
 public class MainController {
 	
@@ -46,23 +48,30 @@ public class MainController {
 	@Autowired
 	private MainService service;
 	
+	@Autowired
+    private KafkaTemplate<String, Object> kafkaTemplate;
+
+    @Autowired
+    private NewTopic topic;
+	
 	
 	
 	@PostMapping("/register")
-	public ResponseEntity<String> registerUser(@RequestBody User user) {
-		userRepository.save(user);
-		return new ResponseEntity<String>("User Registered Successfully",HttpStatus.OK);
+	public ResponseEntity<?> registerUser(@RequestBody User user) {
+		User res = userRepository.save(user);
+		return new ResponseEntity<>(res,HttpStatus.OK);
 	}
 	
 	@PostMapping("/login")
-	public boolean loginUser(@RequestBody RequestedUser user) {
+	public ResponseEntity<?> loginUser(@RequestBody RequestedUser user) {
 		//boolean isAuthorized = ;
-		if(service.authorizeUser(user)) {
+		User authorizedUser = service.authorizeUser(user);
+		if(authorizedUser!=null) {
 			//return new ResponseEntity<String>("User Logged In Successfully",HttpStatus.OK);
-			return true;
+			return new ResponseEntity<>(authorizedUser,HttpStatus.OK);
 		}
 		//return new ResponseEntity<String>("User not found",HttpStatus.OK);
-		return false;
+		return new ResponseEntity<>("SomeThing went Wrong",HttpStatus.OK);
 			
 	}
 	
@@ -94,6 +103,7 @@ public class MainController {
 	
 	@PostMapping("/movieName/add")
 	public ResponseEntity<?> addMovie(@RequestBody Movie movie){
+		movie.setId(new Movie.MovieKey(movie.getId().getMovieName().toLowerCase(),movie.getId().getTheatreName().toLowerCase()));
 		movieRepository.save(movie);
 		return new ResponseEntity<Movie>(movie,HttpStatus.OK);
 	}
@@ -106,7 +116,7 @@ public class MainController {
 	
 	@PostMapping("/bookTicket")
 	public ResponseEntity<?> bookTicket(@RequestBody Ticket ticket) throws MovieNotFoundException{
-		System.out.println(ticket.getMovieName());
+		
 		if(service.updateTicketCount(new Movie.MovieKey(ticket.getMovieName(),ticket.getTheatreName()),ticket.getNoOfTickets())) {
 		ticketRepository.save(ticket);
 		
@@ -118,6 +128,7 @@ public class MainController {
 	@DeleteMapping("/delete/{moviename}/{theatrename}")
 	public ResponseEntity<?> deleteMovie(@PathVariable(value = "moviename") String moviename,@PathVariable(value = "theatrename") String theatrename){
 		movieRepository.deleteById(new Movie.MovieKey(moviename, theatrename));
+		kafkaTemplate.send(topic.name(),"Movie Deleted. "+moviename+" is now not available");
 		return new ResponseEntity<String>("Movie Delted Successfully",HttpStatus.OK);
 	}
 	

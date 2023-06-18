@@ -26,12 +26,12 @@ public class MainServiceImpl implements MainService {
 	private UserRepository userRepository;
 	
 	@Override
-	public boolean authorizeUser(RequestedUser user) {
+	public User authorizeUser(RequestedUser user) {
 		Optional<User> dbuser = userRepository.findByEmail(user.getEmail());
 		if(dbuser.isPresent() && user.getPassword().equals(dbuser.get().getPassword())) {
-			return true;
+			return dbuser.get();
 		}
-		return false;
+		return null;
 	}
 	
 	@Override
@@ -49,7 +49,7 @@ public class MainServiceImpl implements MainService {
 	@Override
 	public List<Movie> searchByMovieName(String query) {
 		List<Movie> movies = movieRepository.findAll();
-		String finalquery = query.substring(0, 1).toUpperCase() + query.substring(1).toLowerCase();
+		String finalquery = query.toLowerCase();
 		movies = movies.stream().filter((movie)->movie.getId().getMovieName()
 				.contains(finalquery)).collect(Collectors.toList());
 		return movies;
